@@ -602,23 +602,9 @@ class GrEnv(DirectRLEnv):
             self.cfg.op_z_lin_scale,
         )
 
-        # --- r_release_hand: release-phase hand-RETURN term (B, 2026-06-07; see cfg.release_hand_track) ----
-        # After the object is placed, the policy parks the hand near the object instead of retreating to the
-        # MANO home pose (seq1 end hand_err ~25cm). reg and base-rate-limit ruled out -> the cause is SALIENCE
-        # (the retreat is ~0.6% of the return). This term makes it salient: distance-LINEAR (constant gradient
-        # all the way home, unlike the always-on exp(-10*err^2) r_hand which flattens far out) and gated by the
-        # HARD 0/1 release_seq schedule, so it is EXACTLY 0 across approach+carry and identically 0 on seq3
-        # (held aloft to T-1, release window empty) -> seq3 byte-identical. Reference-time gated (policy-
-        # independent). Logged separately so its magnitude is visible (no single-term domination).
-        if self.cfg.release_hand_track:
-            _t = self.t.long()
-            _rel = self.release_seq[_t]                                                       # (N,) hard 0/1
-            _hand_err_rel = torch.mean(torch.norm(self.hand_kpts_pos - self.mano_kpts_pos_ref, dim=-1), dim=-1)
-            r_release_hand = self.cfg.w_release_hand * _rel * torch.clamp(
-                1.0 - _hand_err_rel / self.cfg.release_hand_lin_scale, 0.0, 1.0)
-            total_reward = total_reward + r_release_hand
-            logs_dict["reward/r_release_hand"] = r_release_hand
-            logs_dict["reward/release_gate"] = _rel
+        # NOTE: the release-phase hand-RETURN term (r_release_hand) lives DOWN in the _grip_active block
+        # below, next to r_release_open, because it is now gated by grip_quality (open-hand gate) which is
+        # only defined there. See the "Release-phase decoupling" block after grip_quality.
 
         # Phase-Aware reward block (v1, 2026-05-29). Replaces the previous monolithic r_grasp.
         # Splits the contact-force reward into r_grasp (PRE-LIFT discovery: credits an opposition
@@ -731,6 +717,38 @@ class GrEnv(DirectRLEnv):
             # add a stricter support_contact term here instead of creating a separate object-tracking gate.
             grip_quality = grip_contact_base
             logs_dict["reward/grip_quality"] = grip_quality
+
+            # --- Release-phase decoupling: leave the object PLACED, RETURN the hand home (2026-06-10) ---
+            # Both terms gated by the hard 0/1 release_seq schedule -> identically 0 across approach+carry (no
+            # grasp/lift leak) and identically 0 on seq3 (release window empty) -> seq3 byte-identical.
+            #   r_release_open: penalize residual force-grip so the hand opens once the object is placed.
+            #   r_release_hand: distance-LINEAR hand-RETURN, gated so it pays ONLY when the object is left at its
+            #     reference AND the hand is open. TWO gates:
+            #       (1-grip_release): force-grip gate. NOTE it was a NO-OP for the observed failure -- v1==v2
+            #         dump (obj dragged 13cm, fingertips 3.5cm from it, hand 16cm from home). The drag is a
+            #         LOW-FORCE finger-CLING, so grip_quality(contact force) ~ 0 -> (1-grip) ~ 1 -> no bite.
+            #       place_gate = clamp(1 - obj_err/tol): the REAL fix. If the hand drags the object off its
+            #         reference, this kills the return reward, so the only way to collect it is to retreat
+            #         WITHOUT disturbing the object (clear the fingers). obj_err measures decoupling directly,
+            #         independent of contact force. r_op supplies the gradient that pulls the object back to ref.
+            #     release_hand_lin_scale=0.30 stays (constant ~3.3/m pull home). seq3 release empty -> still 0.
+            _rel = self.release_seq[t]
+            grip_release = grip_quality.clamp(0.0, 1.0)
+            if self.cfg.release_open_penalty > 0.0:
+                r_release_open = self.cfg.release_open_penalty * _rel * grip_release
+                total_reward = total_reward - r_release_open
+                logs_dict["reward/r_release_open"] = r_release_open
+            if self.cfg.release_hand_track:
+                _hand_err_rel = torch.mean(torch.norm(self.hand_kpts_pos - self.mano_kpts_pos_ref, dim=-1), dim=-1)
+                _obj_err_rel = torch.norm(self.obj_pos - self.obj_pos_ref, dim=-1)
+                _place_gate = torch.clamp(1.0 - _obj_err_rel / self.cfg.release_place_tol, 0.0, 1.0)
+                r_release_hand = (self.cfg.w_release_hand * _rel * (1.0 - grip_release) * _place_gate
+                                  * torch.clamp(1.0 - _hand_err_rel / self.cfg.release_hand_lin_scale, 0.0, 1.0))
+                total_reward = total_reward + r_release_hand
+                logs_dict["reward/r_release_hand"] = r_release_hand
+                logs_dict["reward/release_place_gate"] = _place_gate
+                logs_dict["reward/release_gate"] = _rel
+
             logs_dict["reward/pose_gate_obj"] = pose_gate_obj
             logs_dict["err/reach"] = d_mean               # 5-finger mean dist (continuity w/ prior runs)
             logs_dict["err/reach_thumb"] = d_thumb        # thumb-side dist: does thumb_split pull it in?
@@ -889,6 +907,17 @@ class GrEnv(DirectRLEnv):
                 actual_frac = (actual_rot_angle / self.ref_rot_angle[t].clamp_min(0.05)).clamp(0.0, 1.0)
                 r_or_axis = torch.clamp(1.0 - swing / 3.141592653589793, 0.0, 1.0)
                 ax_gate = (self.ref_rot_angle[t] / 3.141592653589793).clamp(0.0, 1.0)        # active where ref rotates
+                if self.cfg.or_axis_gate_r_or:
+                    # Make axis purity a gate on the already carry-gated r_or credit, not just an additive bonus.
+                    # This preserves early rotation gradient through the floor while preventing wrong-axis
+                    # rotations from receiving full geodesic-angle reward in seq2/seq3 carry windows.
+                    axis_factor = self.cfg.or_axis_gate_floor + (1.0 - self.cfg.or_axis_gate_floor) * r_or_axis
+                    axis_gate = c * ax_gate
+                    r_or_axis_factor = 1.0 - axis_gate * (1.0 - axis_factor)
+                    total_reward = total_reward + (
+                        self.cfg.w_or * logs_dict["reward/r_or"] * carry_pos_gate * (r_or_axis_factor - 1.0)
+                    )
+                    logs_dict["reward/r_or_axis_factor"] = r_or_axis_factor
                 r_or_axis_term = self.cfg.w_or_axis * carry_pos_gate * ax_gate * actual_frac * r_or_axis
                 total_reward = total_reward + r_or_axis_term
                 logs_dict["reward/r_or_axis"] = r_or_axis_term
@@ -1034,16 +1063,9 @@ class GrEnv(DirectRLEnv):
             # 21 keypoints only ~3cm when the hand is flat), so r_hand/r_ft can neither stop the retreat
             # palm-UP flip orlin's vigorous lift+pour excites NOR finely drive the pour orientation.
             # r_orient tracks the MANO-reference palm FRAME directly (angle-LINEAR, like or_linear: constant
-            # gradient, no flat 180deg antipode -> can drag a flipped palm all the way back). GATE =
-            # max(enclosure, release): ON whenever the hand is actually gripping (enclosure -> helps the
-            # lift/hold/pour rotation, ramps in only as the grip forms = r_hold-style, no premature
-            # perturbation) OR in the post-grip release retreat (release_seq -> fixes the flip, where
-            # enclosure has dropped to 0). OFF during the empty-handed approach (enclosure~0, not release)
-            # so it never distracts grasp DISCOVERY -- orient_v1(w1.0) havened, orient_v2(w0.3) still had
-            # enclosure 0 = r_orient anywhere in the approach/grasp-learning phase corrupts it (user insight).
-            # Absolute MANO target + NO position offset -> matching it rotates in place without pulling the
-            # hand off the object -> NOT the palmframe catch-22. enclosure ramp avoids the contact-free
-            # haven. Seq-agnostic (palm frame + release_seq both data-derived).
+            # gradient, no flat 180deg antipode -> can drag a flipped palm all the way back). Default GATE keeps
+            # the validated enclosure+release behavior. An optional grip_quality carry gate is available for
+            # seq2/3 topology experiments, but left off by default so this axis-gate patch stays isolated.
             if self.cfg.w_orient > 0.0:
                 def _palm_frame(K):                    # K:(N,21,3) -> (N,3,3) cols [x,y,z]
                     o = K[:, 0]
@@ -1057,10 +1079,15 @@ class GrEnv(DirectRLEnv):
                 R_rel = _palm_frame(self.hand_kpts_pos).transpose(-1, -2) @ _palm_frame(self.mano_kpts_pos_ref)
                 cos = ((R_rel[:, 0, 0] + R_rel[:, 1, 1] + R_rel[:, 2, 2]) - 1.0) * 0.5
                 theta = torch.acos(torch.clamp(cos, -1.0, 1.0))                       # (N,) geodesic 0..pi
-                orient_gate = torch.maximum(enclosure.clamp(0.0, 1.0), self.release_seq[t])
+                if self.cfg.orient_use_grip_quality_gate:
+                    carry_orient_gate = c * _lift_track * (grip_quality / self.cfg.grip_gate_ref).clamp(0.0, 1.0)
+                    orient_gate = torch.maximum(carry_orient_gate, self.release_seq[t])
+                else:
+                    orient_gate = torch.maximum(enclosure.clamp(0.0, 1.0), self.release_seq[t])
                 r_orient = self.cfg.w_orient * orient_gate * torch.clamp(1.0 - theta / 3.141592653589793, 0.0, 1.0)
                 total_reward = total_reward + r_orient
                 logs_dict["reward/r_orient"] = r_orient
+                logs_dict["reward/orient_gate"] = orient_gate
                 logs_dict["err/orient"] = theta * (180.0 / 3.141592653589793)        # deg, for TB
 
             logs_dict["reward/total"] = total_reward
