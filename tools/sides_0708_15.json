@@ -1,0 +1,122 @@
+{
+ "1 (1).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "LEFT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (10).txt": {
+  "side": "LEFT",
+  "how": "turn1(L=True,R=True) deep(L=62,R=14)",
+  "outcome": "LEFT_WIN",
+  "reason": "TURN_LIMIT"
+ },
+ "1 (11).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "RIGHT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (12).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "LEFT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (13).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "RIGHT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (14).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "DRAW",
+  "reason": "TURN_LIMIT"
+ },
+ "1 (15).txt": {
+  "side": "LEFT",
+  "how": "turn1(L=True,R=True) deep(L=73,R=10)",
+  "outcome": "RIGHT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (16).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "RIGHT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (17).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "RIGHT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (18).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "LEFT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (19).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "LEFT_WIN",
+  "reason": "TURN_LIMIT"
+ },
+ "1 (2).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "LEFT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (3).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "LEFT_WIN",
+  "reason": "TURN_LIMIT"
+ },
+ "1 (4).txt": {
+  "side": "RIGHT",
+  "how": "turn1(L=True,R=True) deep(L=10,R=62)",
+  "outcome": "LEFT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (5).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "RIGHT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (6).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "RIGHT_WIN",
+  "reason": "TURN_LIMIT"
+ },
+ "1 (7).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "LEFT_WIN",
+  "reason": "TURN_LIMIT"
+ },
+ "1 (8).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "LEFT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1 (9).txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "LEFT_WIN",
+  "reason": "HQ_DESTROYED"
+ },
+ "1.txt": {
+  "side": "LEFT",
+  "how": "turn1",
+  "outcome": "LEFT_WIN",
+  "reason": "HQ_DESTROYED"
+ }
+}

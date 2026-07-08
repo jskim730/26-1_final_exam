@@ -1,0 +1,85 @@
+[
+ {
+  "log": "1 (11).txt",
+  "res0": "loss",
+  "new_len": 173,
+  "new_res": "LEFT_WIN",
+  "old_res": "LEFT_WIN",
+  "d_inc60": 0,
+  "d_hq60": 0,
+  "d_nb60": 0,
+  "d_inc100": 0,
+  "d_hq100": 0,
+  "d_nb100": 0
+ },
+ {
+  "log": "1 (13).txt",
+  "res0": "draw",
+  "new_len": 61,
+  "new_res": "LEFT_WIN",
+  "old_res": "DRAW",
+  "d_inc60": 0,
+  "d_hq60": 0,
+  "d_nb60": 1
+ },
+ {
+  "log": "1 (17).txt",
+  "res0": "loss",
+  "new_len": 71,
+  "new_res": "RIGHT_WIN",
+  "old_res": "LEFT_WIN",
+  "d_inc60": 30,
+  "d_hq60": 0,
+  "d_nb60": 0
+ },
+ {
+  "log": "1 (19).txt",
+  "res0": "draw",
+  "new_len": 75,
+  "new_res": "RIGHT_WIN",
+  "old_res": "DRAW",
+  "d_inc60": 0,
+  "d_hq60": 0,
+  "d_nb60": 0
+ },
+ {
+  "log": "1 (2).txt",
+  "res0": "loss",
+  "new_len": 200,
+  "new_res": "LEFT_WIN",
+  "old_res": "LEFT_WIN",
+  "d_inc60": 0,
+  "d_hq60": 0,
+  "d_nb60": 0,
+  "d_inc100": 0,
+  "d_hq100": 0,
+  "d_nb100": 0
+ },
+ {
+  "log": "1 (3).txt",
+  "res0": "loss",
+  "new_len": 49,
+  "new_res": "LEFT_WIN",
+  "old_res": "RIGHT_WIN"
+ },
+ {
+  "log": "1 (7).txt",
+  "res0": "loss",
+  "new_len": 200,
+  "new_res": "LEFT_WIN",
+  "old_res": "LEFT_WIN",
+  "d_inc60": 0,
+  "d_hq60": 0,
+  "d_nb60": 0,
+  "d_inc100": 0,
+  "d_hq100": 0,
+  "d_nb100": 0
+ },
+ {
+  "log": "1 (8).txt",
+  "res0": "loss",
+  "new_len": 56,
+  "new_res": "LEFT_WIN",
+  "old_res": "RIGHT_WIN"
+ }
+]
